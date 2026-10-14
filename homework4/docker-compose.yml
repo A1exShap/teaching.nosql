@@ -1,0 +1,50 @@
+version: "3.8"
+
+services:
+  couchbase-node1:
+    image: couchbase/server:community-7.2.0
+    container_name: cb-node1
+    ports:
+      - "8091-8096:8091-8096"
+      - "11210-11211:11210-11211"
+    volumes:
+      - cb_data1:/opt/couchbase/var
+    networks:
+      - couchbase-net
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+
+  couchbase-node2:
+    image: couchbase/server:community-7.2.0
+    container_name: cb-node2
+    volumes:
+      - cb_data2:/opt/couchbase/var
+    networks:
+      - couchbase-net
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+
+  couchbase-node3:
+    image: couchbase/server:community-7.2.0
+    container_name: cb-node3
+    volumes:
+      - cb_data3:/opt/couchbase/var
+    networks:
+      - couchbase-net
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+
+networks:
+  couchbase-net:
+    driver: bridge
+
+volumes:
+  cb_data1:
+  cb_data2:
+  cb_data3:
