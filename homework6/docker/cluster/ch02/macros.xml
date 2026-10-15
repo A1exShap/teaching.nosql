@@ -1,0 +1,8 @@
+<clickhouse>
+    <!-- Подстановки для узла clickhouse-02 (шард 2). -->
+    <macros>
+        <cluster>demo_cluster</cluster>
+        <shard>02</shard>
+        <replica>clickhouse-02</replica>
+    </macros>
+</clickhouse>

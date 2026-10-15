@@ -1,0 +1,76 @@
+# Кластер ClickHouse для демо: 2 шарда + 1 ClickHouse Keeper.
+#
+#   Запуск:   docker compose -f docker-compose.cluster.yml up -d
+#   Схема:    см. docker/cluster/schema.sql (выполнить вручную, раздел про кластер в README)
+#   Останов:  docker compose -f docker-compose.cluster.yml down        (данные сохранятся)
+#             docker compose -f docker-compose.cluster.yml down -v      (удалить данные)
+#
+# Для простоты используется пользователь default без пароля — так межузловые
+# (Distributed) запросы работают без дополнительной настройки учётных данных.
+
+services:
+  clickhouse-keeper:
+    image: clickhouse/clickhouse-keeper:24.8
+    container_name: clickhouse-keeper
+    hostname: clickhouse-keeper
+    ports:
+      - "9181:9181"     # клиентский порт Keeper (для проверок)
+    volumes:
+      - ./docker/cluster/keeper/keeper_config.xml:/etc/clickhouse-keeper/keeper_config.xml:ro
+      - keeper-data:/var/lib/clickhouse-keeper
+    healthcheck:
+      # 4-буквенная команда ruok должна вернуть imok. nc в образе висит на соединении,
+      # поэтому используем bash /dev/tcp — надёжно закрывает поток.
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/9181; echo -n ruok >&3; grep -q imok <&3'"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  clickhouse-01:
+    image: clickhouse/clickhouse-server:24.8
+    container_name: clickhouse-01
+    hostname: clickhouse-01
+    depends_on:
+      clickhouse-keeper:
+        condition: service_healthy
+    ports:
+      - "8123:8123"     # HTTP шарда 1
+      - "9000:9000"     # native шарда 1
+    ulimits:
+      nofile: { soft: 262144, hard: 262144 }
+    volumes:
+      - ./docker/cluster/common/cluster.xml:/etc/clickhouse-server/config.d/cluster.xml:ro
+      - ./docker/cluster/ch01/macros.xml:/etc/clickhouse-server/config.d/macros.xml:ro
+      - ch01-data:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8123/ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  clickhouse-02:
+    image: clickhouse/clickhouse-server:24.8
+    container_name: clickhouse-02
+    hostname: clickhouse-02
+    depends_on:
+      clickhouse-keeper:
+        condition: service_healthy
+    ports:
+      - "8124:8123"     # HTTP шарда 2 (на хосте порт 8124)
+      - "9001:9000"     # native шарда 2 (на хосте порт 9001)
+    ulimits:
+      nofile: { soft: 262144, hard: 262144 }
+    volumes:
+      - ./docker/cluster/common/cluster.xml:/etc/clickhouse-server/config.d/cluster.xml:ro
+      - ./docker/cluster/ch02/macros.xml:/etc/clickhouse-server/config.d/macros.xml:ro
+      - ch02-data:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8123/ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  keeper-data:
+  ch01-data:
+  ch02-data:

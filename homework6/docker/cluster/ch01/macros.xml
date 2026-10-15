@@ -1,0 +1,9 @@
+<clickhouse>
+    <!-- Подстановки {cluster}/{shard}/{replica}, используемые в ENGINE реплицируемых таблиц.
+         Этот файл монтируется только в узел clickhouse-01 (шард 1). -->
+    <macros>
+        <cluster>demo_cluster</cluster>
+        <shard>01</shard>
+        <replica>clickhouse-01</replica>
+    </macros>
+</clickhouse>

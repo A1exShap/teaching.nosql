@@ -1,0 +1,41 @@
+<clickhouse>
+    <!-- Слушать на всех интерфейсах, чтобы узлы видели друг друга внутри docker-сети -->
+    <listen_host>0.0.0.0</listen_host>
+
+    <!-- Описание кластера: 2 шарда, по одной реплике в каждом -->
+    <remote_servers replace="true">
+        <demo_cluster>
+            <!-- Общий секрет для межузловой аутентификации: узлы доверяют друг другу
+                 и пробрасывают личность исходного пользователя при Distributed-запросах.
+                 Без него пересылка строк на соседний шард падает с AUTHENTICATION_FAILED. -->
+            <secret>demo_cluster_secret</secret>
+            <shard>
+                <internal_replication>true</internal_replication>
+                <replica>
+                    <host>clickhouse-01</host>
+                    <port>9000</port>
+                </replica>
+            </shard>
+            <shard>
+                <internal_replication>true</internal_replication>
+                <replica>
+                    <host>clickhouse-02</host>
+                    <port>9000</port>
+                </replica>
+            </shard>
+        </demo_cluster>
+    </remote_servers>
+
+    <!-- Координация реплик и распределённого DDL через ClickHouse Keeper -->
+    <zookeeper replace="true">
+        <node>
+            <host>clickhouse-keeper</host>
+            <port>9181</port>
+        </node>
+    </zookeeper>
+
+    <!-- Очередь распределённых DDL-запросов (ON CLUSTER) -->
+    <distributed_ddl>
+        <path>/clickhouse/task_queue/ddl</path>
+    </distributed_ddl>
+</clickhouse>
