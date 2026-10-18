@@ -1,0 +1,11 @@
+apiVersion: 1              # Grafana provisioning API version, always 1
+
+providers:
+  - name: consul-demo      # Internal name for this provider, can be anything
+    orgId: 1               # Which Grafana org to load into (1 = default)
+    folder: Consul Demo    # Folder name shown in the Grafana UI sidebar
+    type: file             # Load dashboards from files (not a remote API)
+    disableDeletion: false # Allow deleting dashboards from the UI
+    editable: true         # Allow editing dashboards in the UI
+    options:
+      path: /var/lib/grafana/dashboards  # Where to look for .json files

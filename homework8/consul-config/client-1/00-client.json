@@ -1,0 +1,22 @@
+{
+  "datacenter":  "dc1",
+  "data_dir":    "/consul/data",
+  "log_level":   "INFO",
+  "server":      false,
+  "ui_config":   { "enabled": false },
+  "connect":     { "enabled": true },
+  "client_addr": "0.0.0.0",
+  "addresses": {
+    "http": "0.0.0.0",
+    "dns":  "0.0.0.0"
+  },
+  "ports": {
+    "http": 8500,
+    "dns":  8600,
+    "grpc": 8502
+  },
+  "telemetry": {
+    "prometheus_retention_time": "60s",
+    "disable_hostname": true
+  }
+}

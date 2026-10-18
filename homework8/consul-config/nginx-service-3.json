@@ -1,0 +1,19 @@
+{
+  "services": [
+    {
+      "id":      "nginx-3",
+      "name":    "nginx",
+      "address": "172.20.0.32",
+      "port":    80,
+      "tags":    ["web", "backend", "demo"],
+      "check": {
+        "id":       "nginx-http-check-3",
+        "name":     "nginx-3 HTTP health",
+        "http":     "http://172.20.0.32:80",
+        "interval": "10s",
+        "timeout":  "3s",
+        "deregister_critical_service_after": "30s"
+      }
+    }
+  ]
+}

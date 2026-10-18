@@ -1,0 +1,21 @@
+{
+  "services": [
+    {
+      "id":      "nginx-2",
+      "name":    "nginx",
+      "address": "172.20.0.31",
+      "port":    80,
+      "tags":    ["web", "backend", "demo"],
+      "checks": [
+        {
+          "id":       "nginx-http-2",
+          "name":     "nginx-2 HTTP",
+          "http":     "http://172.20.0.31:80",
+          "interval": "10s",
+          "timeout":  "5s",
+          "deregister_critical_service_after": "60s"
+        }
+      ]
+    }
+  ]
+}

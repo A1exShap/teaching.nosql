@@ -1,0 +1,479 @@
+version: "3.8"
+
+# =============================================================================
+#  HashiCorp Consul Demo
+#  Startup order (deadlock-free):
+#    server-1 starts alone
+#    server-2 + server-3 depend on server-1 STARTED (not healthy) so they
+#      can join and form the quorum needed for leader election
+#    server healthcheck: /v1/status/leader returns non-empty = leader exists
+#    clients + bootstrap wait for server-1 HEALTHY (quorum formed)
+#    nginx nodes wait for their client to be healthy
+#    consul-template sidecars wait for client + bootstrap
+# =============================================================================
+
+networks:
+  consul-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.32.0.0/24
+
+services:
+  
+  network-tools:
+    image: nicolaka/netshoot:latest
+    container_name: netshoot_container
+    stdin_open: true # Аналог -i
+    tty: true        # Аналог -t
+    networks:
+      - consul-net
+
+  # ── CONSUL SERVERS ──────────────────────────────────────────────────────────
+  consul-server-1:
+    image: hashicorp/consul:1.18
+    container_name: consul-server-1
+    hostname: consul-server-1
+    restart: unless-stopped
+    networks:
+      consul-net:
+        ipv4_address: 172.32.0.10
+    ports:
+      - "8500:8500"
+      - "8600:8600/udp"
+    volumes:
+      - ./consul-config/server.json:/consul/config/server.json
+      - consul-server-1-data:/consul/data
+    command: >
+      consul agent
+        -config-file=/consul/config/server.json
+        -node=consul-server-1
+        -bind=172.32.0.10
+        -advertise=172.32.0.10
+        -bootstrap-expect=3
+        -ui
+        -log-level=INFO
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:8500/v1/status/leader"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+      start_period: 5s
+
+  consul-server-2:
+    image: hashicorp/consul:1.18
+    container_name: consul-server-2
+    hostname: consul-server-2
+    restart: unless-stopped
+    networks:
+      consul-net:
+        ipv4_address: 172.32.0.11
+    volumes:
+      - ./consul-config/server.json:/consul/config/server.json
+      - consul-server-2-data:/consul/data
+    command: >
+      consul agent
+        -config-file=/consul/config/server.json
+        -node=consul-server-2
+        -bind=172.32.0.11
+        -advertise=172.32.0.11
+        -bootstrap-expect=3
+        -retry-join=172.32.0.10
+        -log-level=INFO
+    depends_on:
+      consul-server-1:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:8500/v1/status/leader"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+      start_period: 5s
+
+  consul-server-3:
+    image: hashicorp/consul:1.18
+    container_name: consul-server-3
+    hostname: consul-server-3
+    restart: unless-stopped
+    networks:
+      consul-net:
+        ipv4_address: 172.32.0.12
+    volumes:
+      - ./consul-config/server.json:/consul/config/server.json
+      - consul-server-3-data:/consul/data
+    command: >
+      consul agent
+        -config-file=/consul/config/server.json
+        -node=consul-server-3
+        -bind=172.32.0.12
+        -advertise=172.32.0.12
+        -bootstrap-expect=3
+        -retry-join=172.32.0.10
+        -log-level=INFO
+    depends_on:
+      consul-server-1:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:8500/v1/status/leader"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+      start_period: 5s
+
+  # ── KV BOOTSTRAP ────────────────────────────────────────────────────────────
+  consul-bootstrap:
+    image: hashicorp/consul:1.18
+    container_name: consul-bootstrap
+    networks:
+      - consul-net
+    volumes:
+      - ./scripts/bootstrap-kv.sh:/bootstrap-kv.sh:ro
+    entrypoint: ["/bin/sh", "/bootstrap-kv.sh"]
+    environment:
+      CONSUL_HTTP_ADDR: "http://172.32.0.10:8500"
+    depends_on:
+      consul-server-1:
+        condition: service_healthy
+      consul-server-2:
+        condition: service_healthy
+      consul-server-3:
+        condition: service_healthy
+    restart: "no"
+
+  # ── CONSUL CLIENTS ──────────────────────────────────────────────────────────
+  # Each mounts a per-node config directory loaded with -config-dir so that
+  # BOTH 00-client.json and 10-nginx-service.json are picked up by Consul.
+  consul-client-1:
+    image: hashicorp/consul:1.18
+    container_name: consul-client-1
+    hostname: consul-client-1
+    restart: unless-stopped
+    networks:
+      consul-net:
+        ipv4_address: 172.32.0.20
+    volumes:
+      - ./consul-config/client-1/00-client.json:/consul/config/00-client.json
+      - ./consul-config/client-1/10-nginx-service.json:/consul/config/10-nginx-service.json
+    command: >
+      consul agent
+        -config-dir=/consul/config
+        -node=consul-client-1
+        -bind=172.32.0.20
+        -advertise=172.32.0.20
+        -retry-join=172.32.0.10
+        -log-level=INFO
+    depends_on:
+      consul-server-1:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "consul", "members"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+  consul-client-2:
+    image: hashicorp/consul:1.18
+    container_name: consul-client-2
+    hostname: consul-client-2
+    restart: unless-stopped
+    networks:
+      consul-net:
+        ipv4_address: 172.32.0.21
+    volumes:
+      - ./consul-config/client-2/00-client.json:/consul/config/00-client.json
+      - ./consul-config/client-2/10-nginx-service.json:/consul/config/10-nginx-service.json
+    command: >
+      consul agent
+        -config-dir=/consul/config
+        -node=consul-client-2
+        -bind=172.32.0.21
+        -advertise=172.32.0.21
+        -retry-join=172.32.0.10
+        -log-level=INFO
+    depends_on:
+      consul-server-1:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "consul", "members"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+  consul-client-3:
+    image: hashicorp/consul:1.18
+    container_name: consul-client-3
+    hostname: consul-client-3
+    restart: unless-stopped
+    networks:
+      consul-net:
+        ipv4_address: 172.32.0.22
+    volumes:
+      - ./consul-config/client-3/00-client.json:/consul/config/00-client.json
+      - ./consul-config/client-3/10-nginx-service.json:/consul/config/10-nginx-service.json
+    command: >
+      consul agent
+        -config-dir=/consul/config
+        -node=consul-client-3
+        -bind=172.32.0.22
+        -advertise=172.32.0.22
+        -retry-join=172.32.0.10
+        -log-level=INFO
+    depends_on:
+      consul-server-1:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "consul", "members"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+  consul-client-lb:
+    image: hashicorp/consul:1.18
+    container_name: consul-client-lb
+    hostname: consul-client-lb
+    restart: unless-stopped
+    networks:
+      consul-net:
+        ipv4_address: 172.32.0.23
+    volumes:
+      - ./consul-config/client-lb/00-client.json:/consul/config/00-client.json
+    command: >
+      consul agent
+        -config-dir=/consul/config
+        -node=consul-client-lb
+        -bind=172.32.0.23
+        -advertise=172.32.0.23
+        -retry-join=172.32.0.10
+        -log-level=INFO
+    depends_on:
+      consul-server-1:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "consul", "members"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+  # ── NGINX BACKENDS ──────────────────────────────────────────────────────────
+  nginx-1:
+    image: nginx:alpine
+    container_name: nginx-1
+    restart: unless-stopped
+    networks:
+      consul-net:
+        ipv4_address: 172.32.0.30
+    ports:
+      - "8081:80"
+    volumes:
+      - nginx-1-html:/usr/share/nginx/html
+    depends_on:
+      consul-client-1:
+        condition: service_healthy
+
+  nginx-2:
+    image: nginx:alpine
+    container_name: nginx-2
+    restart: unless-stopped
+    networks:
+      consul-net:
+        ipv4_address: 172.32.0.31
+    ports:
+      - "8082:80"
+    volumes:
+      - nginx-2-html:/usr/share/nginx/html
+    depends_on:
+      consul-client-2:
+        condition: service_healthy
+
+  nginx-3:
+    image: nginx:alpine
+    container_name: nginx-3
+    restart: unless-stopped
+    networks:
+      consul-net:
+        ipv4_address: 172.32.0.32
+    ports:
+      - "8083:80"
+    volumes:
+      - nginx-3-html:/usr/share/nginx/html
+    depends_on:
+      consul-client-3:
+        condition: service_healthy
+
+  # ── CONSUL-TEMPLATE SIDECARS (KV → nginx page content) ──────────────────────
+  consul-template-1:
+    image: hashicorp/consul-template:0.42.1
+    container_name: consul-template-1
+    command: ["-config=/config/consul-template.hcl", "-log-level=info"]
+    restart: unless-stopped
+    networks:
+      consul-net:
+        ipv4_address: 172.32.0.40
+    volumes:
+      - nginx-1-html:/output
+      - ./nginx-template/index.html.tpl:/templates/index.html.tpl:ro
+      - ./consul-template/config-1.hcl:/config/consul-template.hcl:ro
+    environment:
+      CONSUL_HTTP_ADDR: "http://172.32.0.20:8500"
+      NODE_NAME: "nginx-node-1"
+      NODE_PORT: "8081"
+    depends_on:
+      consul-client-1:
+        condition: service_healthy
+      consul-bootstrap:
+        condition: service_completed_successfully
+
+  consul-template-2:
+    image: hashicorp/consul-template:0.42.1
+    container_name: consul-template-2
+    command: ["-config=/config/consul-template.hcl", "-log-level=info"]
+    restart: unless-stopped
+    networks:
+      consul-net:
+        ipv4_address: 172.32.0.41
+    volumes:
+      - nginx-2-html:/output
+      - ./nginx-template/index.html.tpl:/templates/index.html.tpl:ro
+      - ./consul-template/config-2.hcl:/config/consul-template.hcl:ro
+    environment:
+      CONSUL_HTTP_ADDR: "http://172.32.0.21:8500"
+      NODE_NAME: "nginx-node-2"
+      NODE_PORT: "8082"
+    depends_on:
+      consul-client-2:
+        condition: service_healthy
+      consul-bootstrap:
+        condition: service_completed_successfully
+
+  consul-template-3:
+    image: hashicorp/consul-template:0.42.1
+    container_name: consul-template-3
+    command: ["-config=/config/consul-template.hcl", "-log-level=info"]
+    restart: unless-stopped
+    networks:
+      consul-net:
+        ipv4_address: 172.32.0.42
+    volumes:
+      - nginx-3-html:/output
+      - ./nginx-template/index.html.tpl:/templates/index.html.tpl:ro
+      - ./consul-template/config-3.hcl:/config/consul-template.hcl:ro
+    environment:
+      CONSUL_HTTP_ADDR: "http://172.32.0.22:8500"
+      NODE_NAME: "nginx-node-3"
+      NODE_PORT: "8083"
+    depends_on:
+      consul-client-3:
+        condition: service_healthy
+      consul-bootstrap:
+        condition: service_completed_successfully
+
+  # ── NGINX LOAD BALANCER ──────────────────────────────────────────────────────
+  nginx-lb:
+    build:
+      context: ./nginx-lb
+      dockerfile: Dockerfile
+    container_name: nginx-lb
+    restart: unless-stopped
+    networks:
+      consul-net:
+        ipv4_address: 172.32.0.50
+    ports:
+      - "8080:8080"
+    volumes:
+      - nginx-lb-conf:/etc/nginx/conf.d
+    dns:
+      - 172.32.0.23
+    dns_search:
+      - service.consul
+      - node.consul
+    depends_on:
+      consul-client-lb:
+        condition: service_healthy
+      nginx-1:
+        condition: service_started
+      nginx-2:
+        condition: service_started
+      nginx-3:
+        condition: service_started
+
+  # ── CONSUL-TEMPLATE LB SIDECAR (service catalog → nginx upstream) ────────────
+  consul-template-lb:
+    image: hashicorp/consul-template:0.42.1
+    container_name: consul-template-lb
+    command: ["-config=/config/consul-template.hcl", "-log-level=info"]
+    restart: unless-stopped
+    networks:
+      consul-net:
+        ipv4_address: 172.32.0.51
+    volumes:
+      - nginx-lb-conf:/output
+      - ./nginx-lb/upstream.conf.tpl:/templates/upstream.conf.tpl:ro
+      - ./consul-template/config-lb.hcl:/config/consul-template.hcl:ro
+    environment:
+      CONSUL_HTTP_ADDR: "http://172.32.0.23:8500"
+      NODE_NAME: "nginx-lb"
+      NODE_PORT: "8080"
+    depends_on:
+      consul-client-lb:
+        condition: service_healthy
+      consul-bootstrap:
+        condition: service_completed_successfully
+      nginx-lb:
+        condition: service_started
+
+# ── PROMETHEUS ──────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: unless-stopped
+    networks:
+      consul-net:
+        ipv4_address: 172.32.0.60
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.enable-lifecycle"    # allows config hot-reload via POST /-/reload
+    depends_on:
+      consul-server-1:
+        condition: service_healthy
+ 
+  # ── GRAFANA ──────────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    networks:
+      consul-net:
+        ipv4_address: 172.32.0.61
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: "consul-demo"   # login: admin / consul-demo
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: "/var/lib/grafana/dashboards/consul-demo.json"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+# ── VOLUMES ──────────────────────────────────────────────────────────────────
+volumes:
+  consul-server-1-data:
+  consul-server-2-data:
+  consul-server-3-data:
+  nginx-1-html:
+  nginx-2-html:
+  nginx-3-html:
+  nginx-lb-conf:
+  prometheus-data:
+  grafana-data:
