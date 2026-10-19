@@ -1,0 +1,10 @@
+{
+  "query": {
+    "match": {
+      "text": {
+        "query": "мама ела сосиски",
+        "fuzziness": "AUTO"
+      }
+    }
+  }
+}

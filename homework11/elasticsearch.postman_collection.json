@@ -1,0 +1,110 @@
+{
+	"info": {
+		"_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+		"name": "Elasticsearch Demo",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Check ES is alive",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:9200",
+					"protocol": "http",
+					"host": ["localhost"],
+					"port": "9200"
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "2. Create Index Template",
+			"request": {
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"index_patterns\": [\"text-*\"],\n  \"settings\": {\n    \"number_of_shards\": 1,\n    \"number_of_replicas\": 0\n  },\n  \"mappings\": {\n    \"properties\": {\n      \"text\": {\n        \"type\": \"text\",\n        \"analyzer\": \"russian\"\n      }\n    }\n  }\n}"
+				},
+				"url": {
+					"raw": "http://localhost:9200/_template/text-template",
+					"protocol": "http",
+					"host": ["localhost"],
+					"port": "9200",
+					"path": ["_template", "text-template"]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "3. Create Index",
+			"request": {
+				"method": "PUT",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:9200/text-demo",
+					"protocol": "http",
+					"host": ["localhost"],
+					"port": "9200",
+					"path": ["text-demo"]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "4. Bulk Load Documents",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/x-ndjson"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"index\":{\"_index\":\"text-demo\",\"_id\":\"1\"}}\n{\"text\":\"моя мама мыла посуду а кот жевал сосиски\"}\n{\"index\":{\"_index\":\"text-demo\",\"_id\":\"2\"}}\n{\"text\":\"рама была отмыта и вылизана котом\"}\n{\"index\":{\"_index\":\"text-demo\",\"_id\":\"3\"}}\n{\"text\":\"мама мыла раму\"}\n"
+				},
+				"url": {
+					"raw": "http://localhost:9200/_bulk",
+					"protocol": "http",
+					"host": ["localhost"],
+					"port": "9200",
+					"path": ["_bulk"]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "5. Search",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"query\": {\n    \"match\": {\n      \"text\": {\n        \"query\": \"мама ела сосиски\",\n        \"fuzziness\": \"AUTO\"\n      }\n    }\n  }\n}"
+				},
+				"url": {
+					"raw": "http://localhost:9200/text-demo/_search",
+					"protocol": "http",
+					"host": ["localhost"],
+					"port": "9200",
+					"path": ["text-demo", "_search"]
+				}
+			},
+			"response": []
+		}
+	]
+}

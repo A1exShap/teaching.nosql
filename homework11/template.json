@@ -1,0 +1,15 @@
+{
+  "index_patterns": ["text-*"],
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0
+  },
+  "mappings": {
+    "properties": {
+      "text": {
+        "type": "text",
+        "analyzer": "russian"
+      }
+    }
+  }
+}
