@@ -1,0 +1,9 @@
+services:
+  tarantool:
+    image: tarantool/tarantool:2.11
+    container_name: tarantool-demo
+    ports:
+      - "3301:3301"
+    volumes:
+      - ./init.lua:/opt/tarantool/init.lua
+    command: tarantool /opt/tarantool/init.lua
