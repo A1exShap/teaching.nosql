@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "dgSpecHash": "iJu7P7yhiCs=",
+  "success": true,
+  "projectFilePath": "D:\\PROJECTS\\ОБУЧЕНИЕ\\2026\\teaching.nosql.homeworks\\teaching.nosql\\homework14\\MinioHomework\\MinioHomework.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\alexs\\.nuget\\packages\\communitytoolkit.highperformance\\8.4.0\\communitytoolkit.highperformance.8.4.0.nupkg.sha512",
+    "C:\\Users\\alexs\\.nuget\\packages\\microsoft.extensions.dependencyinjection\\9.0.4\\microsoft.extensions.dependencyinjection.9.0.4.nupkg.sha512",
+    "C:\\Users\\alexs\\.nuget\\packages\\microsoft.extensions.dependencyinjection.abstractions\\9.0.4\\microsoft.extensions.dependencyinjection.abstractions.9.0.4.nupkg.sha512",
+    "C:\\Users\\alexs\\.nuget\\packages\\microsoft.extensions.logging\\9.0.4\\microsoft.extensions.logging.9.0.4.nupkg.sha512",
+    "C:\\Users\\alexs\\.nuget\\packages\\microsoft.extensions.logging.abstractions\\9.0.4\\microsoft.extensions.logging.abstractions.9.0.4.nupkg.sha512",
+    "C:\\Users\\alexs\\.nuget\\packages\\microsoft.extensions.options\\9.0.4\\microsoft.extensions.options.9.0.4.nupkg.sha512",
+    "C:\\Users\\alexs\\.nuget\\packages\\microsoft.extensions.primitives\\9.0.4\\microsoft.extensions.primitives.9.0.4.nupkg.sha512",
+    "C:\\Users\\alexs\\.nuget\\packages\\minio\\7.0.0\\minio.7.0.0.nupkg.sha512",
+    "C:\\Users\\alexs\\.nuget\\packages\\system.io.hashing\\9.0.4\\system.io.hashing.9.0.4.nupkg.sha512",
+    "C:\\Users\\alexs\\.nuget\\packages\\system.reactive\\6.0.1\\system.reactive.6.0.1.nupkg.sha512"
+  ],
+  "logs": []
+}
