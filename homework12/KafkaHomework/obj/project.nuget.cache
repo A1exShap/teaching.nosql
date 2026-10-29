@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "JtOV/zAOM2I=",
+  "success": true,
+  "projectFilePath": "D:\\PROJECTS\\ОБУЧЕНИЕ\\2026\\teaching.nosql.homeworks\\teaching.nosql\\homework12\\KafkaHomework\\KafkaHomework.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\alexs\\.nuget\\packages\\confluent.kafka\\2.16.0\\confluent.kafka.2.16.0.nupkg.sha512",
+    "C:\\Users\\alexs\\.nuget\\packages\\librdkafka.redist\\2.16.0\\librdkafka.redist.2.16.0.nupkg.sha512"
+  ],
+  "logs": []
+}
